@@ -1,0 +1,55 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+.env/
+*.env
+.envrc
+.pipenv
+.venv
+
+# Flask instance and logs
+instance/
+logs/
+*.log
+*.out
+
+# Database files
+*.sqlite3
+*.db
+
+# Python package files
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Pytest cache
+.pytest_cache/
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Jupyter notebooks
+.ipynb_checkpoints
+
+# MacOS system files
+.DS_Store
+
+# Node modules (if frontend exists)
+node_modules/
+
+# Coverage reports
+.coverage
+htmlcov/
