@@ -9,27 +9,16 @@ import Step2Plan from './components/Step2Plan';
 import Step3Generation from './components/Step3Generation';
 import EditSectionModal from './components/EditSectionModal';
 import AddSectionModal from './components/AddSectionModal';
+import ErrorModal from './components/ErrorModal'; // You'll need to create this component
+import { generatePlan, generateContent, generateFiles, getDownloadUrl } from './services/api';
 
 function App() {
+  // State for steps navigation
   const [currentStep, setCurrentStep] = useState(1);
   const [currentEditId, setCurrentEditId] = useState(null);
-  const [sections, setSections] = useState([
-    {
-      id: 1,
-      title: "Introduction Python",
-      subsections: ["Définition Python", "Avantages Python", "Domaine d'application Python"]
-    },
-    {
-      id: 2,
-      title: "Installation et configuration",
-      subsections: ["Téléchargement et installation", "Configuration de l'environnement", "Premier programme \"Hello World\""]
-    },
-    {
-      id: 3,
-      title: "Syntaxe de base",
-      subsections: ["Variables et types de données", "Opérateurs", "Structures conditionnelles"]
-    }
-  ]);
+  
+  // State for presentation sections
+  const [sections, setSections] = useState([]);
   
   // State for form fields
   const [formData, setFormData] = useState({
@@ -37,35 +26,172 @@ function App() {
     level: '',
     planType: '',
     description: '',
-    format: 'pdf'
+    format: 'pdf',
+    trainerName: ''
   });
+  
+  // State for API response and errors
+  const [apiPlanResponse, setApiPlanResponse] = useState(null);
+  const [apiContentResponse, setApiContentResponse] = useState(null);
+  const [apiFilesResponse, setApiFilesResponse] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
   
   // State for modals
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
   
   // State for generation step
-  const [isGenerating, setIsGenerating] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStep, setGenerationStep] = useState(0); // 0: not started, 1: generating plan, 2: generating content, 3: generating files
+  const [generationProgress, setGenerationProgress] = useState(0);
+  
+  // Convert API plan response to our sections format
+  const convertApiPlanToSections = (apiResponse) => {
+    if (!apiResponse || !apiResponse.plan || !apiResponse.plan.sections) {
+      return [];
+    }
+    
+    return apiResponse.plan.sections.map((section, index) => ({
+      id: index + 1,
+      title: section.section,
+      subsections: section['sous-sections'] || []
+    }));
+  };
+  
+  // Convert our sections to API plan format
+  const convertSectionsToApiPlan = () => {
+    return {
+      titre: formData.subject,
+      sections: sections.map(section => ({
+        section: section.title,
+        'sous-sections': section.subsections
+      }))
+    };
+  };
+  
+  // Handle API errors
+  const handleApiError = (error, step) => {
+    console.error(`Error in step ${step}:`, error);
+    setErrorMessage(`Error during ${
+      step === 1 ? 'plan generation' : 
+      step === 2 ? 'content generation' : 
+      'file generation'
+    }: ${error.message || 'Unknown error'}`);
+    setShowErrorModal(true);
+    setIsGenerating(false);
+  };
   
   // Handle navigation between steps
-  const goToStep = (step) => {
+  const goToStep = async (step) => {
     if (currentStep === 1 && step === 2) {
       // Validate form before proceeding
       if (!formData.subject || !formData.level || !formData.planType) {
         alert('Veuillez remplir tous les champs obligatoires.');
         return;
       }
+      
+      // If we're moving to step 2, generate a plan if sections are empty
+      if (sections.length === 0) {
+        try {
+          setIsGenerating(true);
+          setGenerationStep(1);
+          setGenerationProgress(25);
+          
+          console.log('Requesting plan generation with data:', formData);
+          const planResponse = await generatePlan(formData);
+          
+          console.log('Plan response received:', planResponse);
+          setApiPlanResponse(planResponse);
+          
+          if (planResponse.success) {
+            const newSections = convertApiPlanToSections(planResponse);
+            setSections(newSections);
+            setIsGenerating(false);
+            setCurrentStep(step);
+          } else {
+            throw new Error(planResponse.message || 'Plan generation failed');
+          }
+        } catch (error) {
+          console.error('Plan generation error:', error);
+          handleApiError(error, 1);
+          return;
+        }
+      }
+      setCurrentStep(step);
+    } else if (currentStep === 2 && step === 3) {
+      // If moving from step 2 to 3, generate content and files
+      setCurrentStep(step);
+      generatePresentationContent();
+    } else {
+      setCurrentStep(step);
     }
-    
-    setCurrentStep(step);
-    
-    // If moving to step 3, simulate loading
-    if (step === 3) {
+  };
+  
+  // Generate presentation content and files
+  const generatePresentationContent = async () => {
+    try {
       setIsGenerating(true);
-      setTimeout(() => {
-        setIsGenerating(false);
-      }, 3000);
+      setGenerationStep(2);
+      setGenerationProgress(50);
+      
+      // Convert our sections to API plan format
+      const apiPlan = convertSectionsToApiPlan();
+      
+      // Generate content
+      const contentParams = {
+        subject: formData.subject,
+        planType: formData.planType,
+        plan: apiPlan
+      };
+      
+      console.log('Requesting content generation with params:', contentParams);
+      const contentResponse = await generateContent(contentParams);
+      console.log('Content response received:', contentResponse);
+      setApiContentResponse(contentResponse);
+      
+      if (!contentResponse.success) {
+        throw new Error(contentResponse.message || 'Content generation failed');
+      }
+      
+      setGenerationStep(3);
+      setGenerationProgress(75);
+      
+      // Generate files
+      const filesParams = {
+        subject: formData.subject,
+        content: contentResponse.content,
+        format: formData.format,
+        trainerName: formData.trainerName || 'Presenter'
+      };
+      
+      console.log('Requesting file generation with params:', filesParams);
+      const filesResponse = await generateFiles(filesParams);
+      console.log('Files response received:', filesResponse);
+      setApiFilesResponse(filesResponse);
+      
+      if (!filesResponse.success) {
+        throw new Error(filesResponse.message || 'File generation failed');
+      }
+      
+      setGenerationProgress(100);
+      setIsGenerating(false);
+    } catch (error) {
+      console.error('Content/file generation error:', error);
+      handleApiError(error, generationStep);
     }
+  };
+  
+  // Handle download of generated files
+  const handleDownload = (fileInfo) => {
+    if (!fileInfo || !fileInfo.download_url) {
+      setErrorMessage('No file available for download');
+      setShowErrorModal(true);
+      return;
+    }
+    
+    const downloadUrl = getDownloadUrl(fileInfo.download_url);
+    window.open(downloadUrl, '_blank');
   };
   
   // Open edit modal
@@ -91,7 +217,7 @@ function App() {
   
   // Add new section
   const addNewSection = (title, subsections) => {
-    const newId = Math.max(...sections.map(s => s.id), 0) + 1;
+    const newId = Math.max(...(sections.length ? sections.map(s => s.id) : [0]), 0) + 1;
     setSections([...sections, { id: newId, title, subsections }]);
     setShowAddModal(false);
   };
@@ -121,6 +247,12 @@ function App() {
       ...formData,
       [name]: value
     });
+  };
+  
+  // Reset error modal
+  const closeErrorModal = () => {
+    setShowErrorModal(false);
+    setErrorMessage('');
   };
   
   return (
@@ -157,7 +289,10 @@ function App() {
           
           {currentStep === 3 && (
             <Step3Generation 
-              isGenerating={isGenerating} 
+              isGenerating={isGenerating}
+              progress={generationProgress}
+              filesResponse={apiFilesResponse}
+              onDownload={handleDownload}
             />
           )}
           
@@ -173,6 +308,13 @@ function App() {
             <AddSectionModal 
               onClose={() => setShowAddModal(false)} 
               onAdd={addNewSection} 
+            />
+          )}
+          
+          {showErrorModal && (
+            <ErrorModal 
+              message={errorMessage}
+              onClose={closeErrorModal}
             />
           )}
         </div>

@@ -57,6 +57,19 @@ const Step1Parameters = ({ formData, onChange, onNext }) => {
         </div>
         
         <div className="form-group">
+          <label htmlFor="trainerName">Nom du formateur</label>
+          <input 
+            type="text" 
+            id="trainerName" 
+            name="trainerName"
+            className="form-control" 
+            placeholder="Votre nom (utilisé sur la présentation)" 
+            value={formData.trainerName} 
+            onChange={onChange}
+          />
+        </div>
+        
+        <div className="form-group">
           <label htmlFor="description">Description / Prompt</label>
           <textarea 
             id="description" 
@@ -92,6 +105,17 @@ const Step1Parameters = ({ formData, onChange, onNext }) => {
                 onChange={onChange}
               />
               <label htmlFor="format-pptx">PPTX</label>
+            </div>
+            <div className="radio-option">
+              <input 
+                type="radio" 
+                id="format-both" 
+                name="format" 
+                value="both" 
+                checked={formData.format === 'both'} 
+                onChange={onChange}
+              />
+              <label htmlFor="format-both">PDF & PPTX</label>
             </div>
           </div>
         </div>

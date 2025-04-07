@@ -1,6 +1,8 @@
 import os
 from flask import Flask
 from config import config
+from flask_cors import CORS
+
 
 def create_app(config_name='default'):
     """
@@ -13,6 +15,8 @@ def create_app(config_name='default'):
         A configured Flask application instance
     """
     app = Flask(__name__)
+    CORS(app)
+
     
     # Load configuration
     app.config.from_object(config[config_name])

@@ -56,7 +56,7 @@ const Step2Plan = ({
                 <FontAwesomeIcon icon={faEdit} />
               </button>
             </div>
-            {section.subsections.length > 0 && (
+            {section.subsections && Array.isArray(section.subsections) && section.subsections.length > 0 && (
               <ul>
                 {section.subsections.map((subsection, idx) => (
                   <li key={idx}>{subsection}</li>
