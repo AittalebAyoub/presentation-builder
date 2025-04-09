@@ -5,9 +5,9 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
     # API Configuration
-    API_KEY = os.environ.get('OPENAI_API_KEY') or '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'
+    API_KEY = os.environ.get('OPENAI_API_KEY') or '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'
     BASE_URL = "https://openrouter.ai/api/v1"
-    MODEL = "deepseek/deepseek-chat-v3-0324:free"
+    MODEL = "deepseek/deepseek-chat:free"
     
     # Application configuration
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app/static/uploads')
