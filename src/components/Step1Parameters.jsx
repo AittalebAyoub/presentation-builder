@@ -1,9 +1,9 @@
 // src/components/Step1Parameters.jsx
 import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowRight } from '@fortawesome/free-solid-svg-icons';
+import { faArrowRight, faSpinner } from '@fortawesome/free-solid-svg-icons';
 
-const Step1Parameters = ({ formData, onChange, onNext }) => {
+const Step1Parameters = ({ formData, onChange, onNext, isLoading }) => {
   return (
     <div className="card slide-up">
       <form id="parametersForm">
@@ -18,6 +18,7 @@ const Step1Parameters = ({ formData, onChange, onNext }) => {
             value={formData.subject} 
             onChange={onChange}
             required 
+            disabled={isLoading}
           />
         </div>
         
@@ -30,6 +31,7 @@ const Step1Parameters = ({ formData, onChange, onNext }) => {
             value={formData.level} 
             onChange={onChange}
             required
+            disabled={isLoading}
           >
             <option value="" disabled>Sélectionnez un niveau</option>
             <option value="debutant">Débutant</option>
@@ -48,6 +50,7 @@ const Step1Parameters = ({ formData, onChange, onNext }) => {
             value={formData.planType} 
             onChange={onChange}
             required
+            disabled={isLoading}
           >
             <option value="" disabled>Sélectionnez un type de plan</option>
             <option value="section">Section</option>
@@ -66,6 +69,7 @@ const Step1Parameters = ({ formData, onChange, onNext }) => {
             placeholder="Votre nom (utilisé sur la présentation)" 
             value={formData.trainerName} 
             onChange={onChange}
+            disabled={isLoading}
           />
         </div>
         
@@ -78,6 +82,7 @@ const Step1Parameters = ({ formData, onChange, onNext }) => {
             placeholder="Décrivez le contenu souhaité pour votre présentation..." 
             value={formData.description} 
             onChange={onChange}
+            disabled={isLoading}
           />
         </div>
         
@@ -92,6 +97,7 @@ const Step1Parameters = ({ formData, onChange, onNext }) => {
                 value="pdf" 
                 checked={formData.format === 'pdf'} 
                 onChange={onChange}
+                disabled={isLoading}
               />
               <label htmlFor="format-pdf">PDF</label>
             </div>
@@ -103,6 +109,7 @@ const Step1Parameters = ({ formData, onChange, onNext }) => {
                 value="pptx" 
                 checked={formData.format === 'pptx'} 
                 onChange={onChange}
+                disabled={isLoading}
               />
               <label htmlFor="format-pptx">PPTX</label>
             </div>
@@ -114,6 +121,7 @@ const Step1Parameters = ({ formData, onChange, onNext }) => {
                 value="both" 
                 checked={formData.format === 'both'} 
                 onChange={onChange}
+                disabled={isLoading}
               />
               <label htmlFor="format-both">PDF & PPTX</label>
             </div>
@@ -124,11 +132,21 @@ const Step1Parameters = ({ formData, onChange, onNext }) => {
           <div></div> {/* Empty div for spacing */}
           <button 
             type="button" 
-            className="btn btn-primary" 
+            className={`btn btn-primary ${isLoading ? 'loading' : ''}`} 
             onClick={onNext}
+            disabled={isLoading}
           >
-            <span>Suivant</span>
-            <FontAwesomeIcon icon={faArrowRight} />
+            {isLoading ? (
+              <>
+                <span>Génération en cours...</span>
+                <FontAwesomeIcon icon={faSpinner} spin />
+              </>
+            ) : (
+              <>
+                <span>Suivant</span>
+                <FontAwesomeIcon icon={faArrowRight} />
+              </>
+            )}
           </button>
         </div>
       </form>

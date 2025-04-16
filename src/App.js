@@ -9,8 +9,12 @@ import Step2Plan from './components/Step2Plan';
 import Step3Generation from './components/Step3Generation';
 import EditSectionModal from './components/EditSectionModal';
 import AddSectionModal from './components/AddSectionModal';
-import ErrorModal from './components/ErrorModal'; // You'll need to create this component
+import ErrorModal from './components/ErrorModal';
+import LoadingSpinner from './components/LoadingSpinner'; // Import the new component
 import { generatePlan, generateContent, generateFiles, getDownloadUrl } from './services/api';
+
+// Import the CSS for the loading spinner
+import './components/LoadingSpinner.css';
 
 function App() {
   // State for steps navigation
@@ -46,6 +50,10 @@ function App() {
   const [generationStep, setGenerationStep] = useState(0); // 0: not started, 1: generating plan, 2: generating content, 3: generating files
   const [generationProgress, setGenerationProgress] = useState(0);
   
+  // State for loading spinner
+  const [isLoadingPlan, setIsLoadingPlan] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  
   // Convert API plan response to our sections format
   const convertApiPlanToSections = (apiResponse) => {
     if (!apiResponse || !apiResponse.plan || !apiResponse.plan.sections) {
@@ -80,6 +88,8 @@ function App() {
     }: ${error.message || 'Unknown error'}`);
     setShowErrorModal(true);
     setIsGenerating(false);
+    setIsLoadingPlan(false);
+    setLoadingMessage('');
   };
   
   // Handle navigation between steps
@@ -95,6 +105,8 @@ function App() {
       if (sections.length === 0) {
         try {
           setIsGenerating(true);
+          setIsLoadingPlan(true);
+          setLoadingMessage(`Génération du plan pour "${formData.subject}" en cours...`);
           setGenerationStep(1);
           setGenerationProgress(25);
           
@@ -108,6 +120,8 @@ function App() {
             const newSections = convertApiPlanToSections(planResponse);
             setSections(newSections);
             setIsGenerating(false);
+            setIsLoadingPlan(false);
+            setLoadingMessage('');
             setCurrentStep(step);
           } else {
             throw new Error(planResponse.message || 'Plan generation failed');
@@ -117,8 +131,9 @@ function App() {
           handleApiError(error, 1);
           return;
         }
+      } else {
+        setCurrentStep(step);
       }
-      setCurrentStep(step);
     } else if (currentStep === 2 && step === 3) {
       // If moving from step 2 to 3, generate content and files
       setCurrentStep(step);
@@ -132,6 +147,8 @@ function App() {
   const generatePresentationContent = async () => {
     try {
       setIsGenerating(true);
+      setIsLoadingPlan(true);
+      setLoadingMessage(`Génération du contenu pour "${formData.subject}" en cours...`);
       setGenerationStep(2);
       setGenerationProgress(50);
       
@@ -156,6 +173,7 @@ function App() {
       
       setGenerationStep(3);
       setGenerationProgress(75);
+      setLoadingMessage(`Génération des fichiers ${formData.format.toUpperCase()} en cours...`);
       
       // Generate files
       const filesParams = {
@@ -176,6 +194,8 @@ function App() {
       
       setGenerationProgress(100);
       setIsGenerating(false);
+      setIsLoadingPlan(false);
+      setLoadingMessage('');
     } catch (error) {
       console.error('Content/file generation error:', error);
       handleApiError(error, generationStep);
@@ -317,6 +337,9 @@ function App() {
               onClose={closeErrorModal}
             />
           )}
+          
+          {/* Popup loading spinner */}
+          {isLoadingPlan && <LoadingSpinner message={loadingMessage} />}
         </div>
       </main>
       
