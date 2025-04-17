@@ -4,3 +4,4 @@ json-repair==0.40.0
 reportlab==4.0.4
 python-pptx==1.0.0
 gunicorn==21.2.0
+flask-cors==5.0.1
