@@ -1,6 +1,6 @@
 // src/services/api.js
-const API_BASE_URL = 'http://localhost:5000'; // Change this to your backend URL
-
+// src/services/api.js
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 /**
  * Generate a presentation plan based on input parameters
  * @param {Object} params - Parameters for plan generation
