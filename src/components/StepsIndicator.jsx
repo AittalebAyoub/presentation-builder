@@ -3,8 +3,8 @@ import React from 'react';
 
 const StepsIndicator = ({ currentStep }) => {
   const steps = [
-    { number: 1, title: 'Paramètres' },
-    { number: 2, title: 'Plan' },
+    { number: 1, title: 'Configuration' },
+    { number: 2, title: 'Plan de formation' },
     { number: 3, title: 'Génération' }
   ];
   
