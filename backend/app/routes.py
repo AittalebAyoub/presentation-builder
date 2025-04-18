@@ -4,6 +4,8 @@ import time
 import traceback
 from werkzeug.utils import secure_filename
 
+from app.services.plan_jour_generator import generate_plan_jour
+
 # Create a blueprint for the main routes
 main = Blueprint('main', __name__)
 
@@ -192,3 +194,47 @@ def download_file(filename):
         filename,
         as_attachment=True
     )
+
+@main.route('/api/generate-plan-jour', methods=['POST'])
+def api_generate_plan_jour():
+    """Generate a presentation plan organized by days based on provided parameters."""
+    try:
+        # Get JSON data from request
+        data = request.json
+        
+        # Extract required parameters
+        domaine = data.get('domaine')
+        sujet = data.get('sujet')
+        description_sujet = data.get('description_sujet', '')
+        niveau_apprenant = data.get('niveau_apprenant')
+        nombre_jours = data.get('nombre_jours', 2)  # Default to 2 days if not specified
+        
+        # Validate required parameters
+        if not all([domaine, sujet, niveau_apprenant]):
+            return jsonify({'error': 'Missing required fields: domaine, sujet, niveau_apprenant'}), 400
+        
+        # Validate nombre_jours is an integer
+        try:
+            nombre_jours = int(nombre_jours)
+            if nombre_jours < 1:
+                return jsonify({'error': 'nombre_jours must be at least 1'}), 400
+        except (TypeError, ValueError):
+            return jsonify({'error': 'nombre_jours must be a valid integer'}), 400
+        
+        # Generate the daily plan
+        start_time = time.time()
+        plan_jour = generate_plan_jour(domaine, sujet, description_sujet, niveau_apprenant, nombre_jours)
+        execution_time = round(time.time() - start_time, 2)
+        
+        # Return the plan with timing information
+        return jsonify({
+            'success': True,
+            'execution_time_seconds': execution_time,
+            'plan_jour': plan_jour
+        })
+    
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error generating daily plan: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': f'Failed to generate daily plan: {str(e)}'}), 500
