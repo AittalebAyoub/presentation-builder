@@ -235,3 +235,247 @@ def create_pdf(output_filename, sections, logo_path, formation_title, trainer_na
     doc.build(elements, onFirstPage=canvas_with_orange_bar, onLaterPages=canvas_with_orange_bar)
     
     return output_filename
+
+def create_pdf_jour(output_filename, contenu_jour, logo_path, formation_title, trainer_name):
+    """
+    Create a PDF presentation for multi-day content from the generated content
+    
+    Args:
+        output_filename: Path to save the PDF file
+        contenu_jour: Multi-day content structure with days, sessions, and subsections
+        logo_path: Path to the logo image
+        formation_title: Title of the presentation
+        trainer_name: Name of the presenter
+    """
+    page_width, page_height = 600, 350
+    
+    doc = SimpleDocTemplate(output_filename, pagesize=(page_width, page_height),
+                            leftMargin=15, rightMargin=15, topMargin=10, bottomMargin=15)
+    
+    styles = getSampleStyleSheet()
+    normal_style = styles["Normal"]
+    
+    # Styles customization
+    formation_style = ParagraphStyle(
+        "FormationTitle",
+        parent=styles["Title"],
+        fontSize=45,
+        textColor=colors.HexColor("#ff7900"),
+        spaceAfter=15,
+        spaceBefore=45,
+        alignment=TA_LEFT,
+    )
+    
+    trainer_style = ParagraphStyle(
+        "TrainerName",
+        parent=styles["BodyText"],
+        fontSize=25,
+        spaceAfter=45,
+        spaceBefore=45,
+        alignment=TA_CENTER,
+        leftIndent=45,
+    )
+    
+    title_style = ParagraphStyle(
+        "TitleStyle",
+        parent=styles["Title"],
+        fontSize=14,
+        alignment=TA_LEFT,
+        spaceAfter=5,
+        spaceBefore=5,
+        textColor=colors.HexColor("#ff7900")
+    )
+    
+    day_title_style = ParagraphStyle(
+        "DayTitleStyle",
+        parent=styles["Title"],
+        fontSize=20,
+        alignment=TA_LEFT,
+        spaceAfter=10,
+        spaceBefore=10,
+        textColor=colors.HexColor("#0097b2"),
+        backgroundColor=colors.HexColor("#f3f3f3"),
+        borderColor=colors.HexColor("#ff7900"),
+        borderWidth=1,
+        borderPadding=10,
+        borderRadius=5
+    )
+    
+    bullet_style = ParagraphStyle(
+        "BulletStyle",
+        parent=styles["BodyText"],
+        fontSize=10,
+        leading=17,
+        spaceBefore=3,
+        spaceAfter=3,
+        rightIndent=15,
+        fontName="Courier",
+    )
+    
+    subtitle_style = ParagraphStyle(
+        "SubtitleStyle",
+        parent=styles["BodyText"],
+        fontSize=12,
+        spaceAfter=2,
+        textColor=colors.HexColor("#000"),
+        leftIndent=15,
+        fontName="Helvetica-Bold"
+    )
+    
+    body_style = ParagraphStyle(
+        "BodyStyle",
+        parent=styles["BodyText"],
+        fontSize=10,
+        leading=20,
+        spaceAfter=3,
+        leftIndent=30,
+        rightIndent=15,
+        alignment=TA_JUSTIFY
+    )
+    
+    elements = []
+    
+    # Function to add the orange bar
+    def add_orange_bar(c, width, height):
+        orange = colors.HexColor("#ff7900")
+        c.setFillColor(orange)
+        c.rect(-12, 0, 20, height, fill=True, stroke=False)
+    
+    # Check if logo exists, use placeholder if not
+    if not os.path.exists(logo_path):
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static', 'default_logo.png')
+        # If default logo doesn't exist either, create a blank image
+        if not os.path.exists(logo_path):
+            from PIL import Image as PILImage
+            from PIL import ImageDraw
+            img = PILImage.new('RGB', (150, 50), color=(255, 255, 255))
+            d = ImageDraw.Draw(img)
+            d.text((10, 20), "Logo", fill=(0, 0, 0))
+            logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static', 'default_logo.png')
+            img.save(logo_path)
+    
+    # Add first page (Formation)
+    img = Image(logo_path, width=120, height=30)
+    img.hAlign = 'RIGHT'
+    
+    elements.append(img)
+    elements.append(Spacer(1, 20))
+    elements.append(Paragraph("Formation", formation_style))
+    elements.append(Paragraph(formation_title, trainer_style))
+    elements.append(PageBreak())
+    
+    # Add second page (Presented by)
+    elements.append(img)
+    elements.append(Spacer(1, 20))
+    elements.append(Paragraph("Présenté par", formation_style))
+    elements.append(Paragraph(trainer_name, trainer_style))
+    elements.append(PageBreak())
+    
+    # Add table of contents 
+    elements.append(Paragraph("Programme de la Formation", title_style))
+    elements.append(Spacer(1, 20))
+    
+    # Loop through days for ToC
+    for day_index, day_content in enumerate(contenu_jour):
+        day_num = day_index + 1
+        elements.append(Paragraph(f"Jour {day_num}:", subtitle_style))
+        
+        # Add session titles for each day in ToC
+        for session_list in day_content:
+            for session in session_list:
+                session_title = session.get("title", "Sans titre")
+                elements.append(Paragraph(f"• {session_title}", bullet_style))
+        
+        elements.append(Spacer(1, 10))
+    
+    elements.append(PageBreak())
+    
+    # Process each day's content
+    for day_index, day_content in enumerate(contenu_jour):
+        day_num = day_index + 1
+        
+        # Add day title
+        elements.append(Paragraph(f"Jour {day_num}", day_title_style))
+        elements.append(Spacer(1, 20))
+        
+        # Process each session in this day
+        for session_list in day_content:
+            for session in session_list:
+                section_title = session.get("title", "Sans titre")
+                elements.append(Paragraph(f"<b>{section_title}</b>", title_style))
+                elements.append(Spacer(1, 10))
+                
+                # Handle subsections
+                for subsection in session.get("subsections", []):
+                    subsection_title = subsection.get("title", "Sous-section")
+                    elements.append(Paragraph(f"{subsection_title}", subtitle_style))
+                    elements.append(Spacer(1, 5))
+                    
+                    # Main content
+                    content = subsection.get("content", "")
+                    elements.append(Paragraph(content, body_style))
+                    elements.append(Spacer(1, 10))
+                    
+                    # Example text if available
+                    if "example" in subsection:
+                        example_text = "Exemple: " + subsection["example"]
+                        example_style = ParagraphStyle(
+                            "ExampleStyle",
+                            parent=body_style,
+                            textColor=colors.HexColor("#006600"),
+                            fontStyle='italic'
+                        )
+                        elements.append(Paragraph(example_text, example_style))
+                        elements.append(Spacer(1, 5))
+                    
+                    # Bullet points
+                    if "bullets" in subsection:
+                        bullet_points = ListFlowable(
+                            [ListItem(Paragraph(point, bullet_style)) for point in subsection["bullets"]],
+                            bulletType="bullet",
+                            leftIndent=25,
+                            spaceBefore=5,
+                            spaceAfter=5
+                        )
+                        elements.append(bullet_points)
+                        elements.append(Spacer(1, 10))
+                    
+                    # Code blocks - handle both 'code' and 'code_example'
+                    code_content = None
+                    if "code" in subsection:
+                        code_content = subsection["code"]
+                    elif "code_example" in subsection:
+                        code_content = subsection["code_example"]
+                    
+                    if code_content:
+                        # Split by lines if it's a string
+                        if isinstance(code_content, str):
+                            code_lines = code_content.strip().split('\n')
+                        else:
+                            code_lines = code_content
+                            
+                        elements.append(format_code_block(code_lines))
+                        elements.append(Spacer(1, 10))
+                    
+                    # Tables
+                    if "table" in subsection:
+                        table_data = subsection["table"]
+                        elements.append(format_table(table_data))
+                        elements.append(Spacer(1, 10))
+                
+                # Add more spacing between sections
+                elements.append(Spacer(1, 20))
+        
+        # Add page break after each day except the last one
+        if day_index < len(contenu_jour) - 1:
+            elements.append(PageBreak())
+    
+    # Function for canvas with orange bar
+    def canvas_with_orange_bar(canvas, doc):
+        width, height = page_width, page_height
+        add_orange_bar(canvas, width, height)
+    
+    # Generate the PDF
+    doc.build(elements, onFirstPage=canvas_with_orange_bar, onLaterPages=canvas_with_orange_bar)
+    
+    return output_filename
