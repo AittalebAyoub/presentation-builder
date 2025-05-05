@@ -1,70 +1,147 @@
-# Getting Started with Create React App
+# Presentation Builder
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A web application that generates professional presentations from user inputs using AI.
 
-## Available Scripts
+**Live Demo:** [https://presentation-builder-1.onrender.com](https://presentation-builder-1.onrender.com)
 
-In the project directory, you can run:
+![Presentation Builder Screenshot](https://via.placeholder.com/800x450)
 
-### `npm start`
+## Overview
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Presentation Builder is a full-stack web application that allows users to quickly create professional presentations by leveraging AI technology. The application takes user inputs such as the topic, audience level, and description, then automatically generates a structured presentation plan, detailed content, and exports it to PDF or PowerPoint formats.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Features
 
-### `npm test`
+- **3-Step Presentation Creation Process**:
+  - Step 1: Set parameters (topic, audience level, format, etc.)
+  - Step 2: Customize the presentation plan
+  - Step 3: Generate presentation files (PDF/PowerPoint)
+- **AI-Powered Content Generation**:
+  - Automatically generates structured presentation plans
+  - Creates detailed content for each section
+  - Supports multiple output formats (PDF, PPTX)
+- **Interactive Plan Editor**:
+  - Add/edit/remove sections and subsections
+  - Reorder sections with drag-and-drop
+- **Modern, Responsive UI**:
+  - Clean, intuitive interface
+  - Progress tracking
+  - Loading indicators
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Technology Stack
 
-### `npm run build`
+### Frontend
+- React.js
+- CSS3 with custom styling
+- Font Awesome for icons
+- Responsive design
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Backend
+- Flask (Python)
+- OpenAI API for content generation
+- ReportLab for PDF generation
+- python-pptx for PowerPoint generation
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Project Structure
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+The project follows a client-server architecture:
 
-### `npm run eject`
+### Frontend
+- React components for UI
+- State management with React hooks
+- API services for backend communication
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Backend
+- Flask application with RESTful endpoints
+- Services for plan generation, content creation, and file export
+- Modular architecture with separate services for each functionality
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Installation and Setup
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### Prerequisites
+- Node.js and npm
+- Python 3.8+
+- pip
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Backend Setup
+1. Clone the repository
+   ```bash
+   git clone <repository-url>
+   cd presentation-builder
+   ```
 
-## Learn More
+2. Create and activate a virtual environment
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+3. Install Python dependencies
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+4. Set environment variables
+   ```bash
+   export FLASK_APP=run.py
+   export FLASK_ENV=development
+   export OPENAI_API_KEY=your-api-key  # Required for AI content generation
+   ```
 
-### Code Splitting
+5. Run the Flask application
+   ```bash
+   python run.py
+   ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+### Frontend Setup
+1. Navigate to the frontend directory
+   ```bash
+   cd frontend
+   ```
 
-### Analyzing the Bundle Size
+2. Install dependencies
+   ```bash
+   npm install
+   ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+3. Start the development server
+   ```bash
+   npm start
+   ```
 
-### Making a Progressive Web App
+4. The application should now be running at `http://localhost:3000`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## API Endpoints
 
-### Advanced Configuration
+The backend exposes the following API endpoints:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+- `POST /api/generate-plan` - Generate a presentation plan
+- `POST /api/generate-content` - Generate detailed content for the plan
+- `POST /api/generate-files` - Create PDF/PPTX files from content
 
-### Deployment
+## Deployment
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+The application is deployed on Render:
+- Frontend: Static site hosting
+- Backend: Web service
 
-### `npm run build` fails to minify
+## Future Enhancements
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- User authentication and saved presentations
+- More customization options for templates and themes
+- Support for more output formats
+- Advanced editing features for content
+- Image generation for slides
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Orange Digital Center for the UI design inspiration
+- OpenAI for the content generation capabilities
