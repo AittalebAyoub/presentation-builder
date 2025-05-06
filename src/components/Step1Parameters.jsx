@@ -54,10 +54,29 @@ const Step1Parameters = ({ formData, onChange, onNext, isLoading }) => {
           >
             <option value="" disabled>Sélectionnez un type de plan</option>
             <option value="section">Section</option>
-            <option value="brut">Brut</option>
             <option value="jour">Par jour</option>
+            <option value="brut">Brut</option>
           </select>
         </div>
+        
+        {formData.planType === 'jour' && (
+          <div className="form-group">
+            <label htmlFor="nombreJours">Nombre de jours</label>
+            <input 
+              type="number" 
+              id="nombreJours" 
+              name="nombreJours"
+              className="form-control" 
+              placeholder="Ex: 5" 
+              value={formData.nombreJours || '1'} 
+              onChange={onChange}
+              min="1"
+              max="30"
+              required 
+              disabled={isLoading}
+            />
+          </div>
+        )}
         
         <div className="form-group">
           <label htmlFor="trainerName">Nom du formateur</label>

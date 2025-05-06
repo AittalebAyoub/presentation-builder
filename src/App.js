@@ -9,9 +9,11 @@ import Step2Plan from './components/Step2Plan';
 import Step3Generation from './components/Step3Generation';
 import EditSectionModal from './components/EditSectionModal';
 import AddSectionModal from './components/AddSectionModal';
+import AddSessionModal from './components/AddSessionModal';
+import AddDayModal from './components/AddDayModal';
 import ErrorModal from './components/ErrorModal';
-import LoadingSpinner from './components/LoadingSpinner'; // Import the new component
-import { generatePlan, generateContent, generateFiles, getDownloadUrl } from './services/api';
+import LoadingSpinner from './components/LoadingSpinner';
+import { generatePlan, generatePlanJour, generateContent, generateFiles, getDownloadUrl } from './services/api';
 
 // Import the CSS for the loading spinner
 import './components/LoadingSpinner.css';
@@ -31,7 +33,8 @@ function App() {
     planType: '',
     description: '',
     format: 'pdf',
-    trainerName: ''
+    trainerName: '',
+    nombreJours: '1'
   });
   
   // State for API response and errors
@@ -43,7 +46,10 @@ function App() {
   // State for modals
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddSessionModal, setShowAddSessionModal] = useState(false);
+  const [showAddDayModal, setShowAddDayModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
+  const [currentDayId, setCurrentDayId] = useState(null);
   
   // State for generation step
   const [isGenerating, setIsGenerating] = useState(false);
@@ -56,26 +62,59 @@ function App() {
   
   // Convert API plan response to our sections format
   const convertApiPlanToSections = (apiResponse) => {
-    if (!apiResponse || !apiResponse.plan || !apiResponse.plan.sections) {
+    if (!apiResponse) {
       return [];
     }
     
-    return apiResponse.plan.sections.map((section, index) => ({
-      id: index + 1,
-      title: section.section,
-      subsections: section['sous-sections'] || []
-    }));
+    // Handle plan_jour format
+    if (apiResponse.plan_jour) {
+      return apiResponse.plan_jour.map((day, dayIndex) => ({
+        id: dayIndex + 1,
+        isDay: true,
+        day: day.jour,
+        title: `Jour ${day.jour}`,
+        sessions: (day.session || day.sessions || []).map((session, sessionIndex) => ({
+          id: `${dayIndex + 1}-${sessionIndex + 1}`,
+          title: session.title,
+          subsections: session.subsections || session.subsection || []
+        }))
+      }));
+    }
+    
+    // Handle regular plan format
+    if (apiResponse.plan && apiResponse.plan.sections) {
+      return apiResponse.plan.sections.map((section, index) => ({
+        id: index + 1,
+        title: section.section,
+        subsections: section['sous-sections'] || []
+      }));
+    }
+    
+    return [];
   };
   
   // Convert our sections to API plan format
   const convertSectionsToApiPlan = () => {
-    return {
-      titre: formData.subject,
-      sections: sections.map(section => ({
-        section: section.title,
-        'sous-sections': section.subsections
-      }))
-    };
+    // Check if we're using the day-based format
+    const isDayFormat = sections.some(section => section.isDay);
+    
+    if (isDayFormat) {
+      return sections.map(day => ({
+        jour: day.day,
+        session: day.sessions.map(session => ({
+          title: session.title,
+          subsections: session.subsections
+        }))
+      }));
+    } else {
+      return {
+        titre: formData.subject,
+        sections: sections.map(section => ({
+          section: section.title,
+          'sous-sections': section.subsections
+        }))
+      };
+    }
   };
   
   // Handle API errors
@@ -101,6 +140,12 @@ function App() {
         return;
       }
       
+      // Additional validation for jour plan type
+      if (formData.planType === 'jour' && (!formData.nombreJours || parseInt(formData.nombreJours) < 1)) {
+        alert('Veuillez spécifier un nombre de jours valide (minimum 1).');
+        return;
+      }
+      
       // If we're moving to step 2, generate a plan if sections are empty
       if (sections.length === 0) {
         try {
@@ -111,7 +156,18 @@ function App() {
           setGenerationProgress(25);
           
           console.log('Requesting plan generation with data:', formData);
-          const planResponse = await generatePlan(formData);
+          
+          let planResponse;
+          if (formData.planType === 'jour') {
+            // Call the plan jour endpoint
+            planResponse = await generatePlanJour({
+              ...formData,
+              nombre_jours: parseInt(formData.nombreJours, 10)
+            });
+          } else {
+            // Call the regular plan endpoint
+            planResponse = await generatePlan(formData);
+          }
           
           console.log('Plan response received:', planResponse);
           setApiPlanResponse(planResponse);
@@ -225,13 +281,49 @@ function App() {
     setShowAddModal(true);
   };
   
+  // Open add session modal
+  const openAddSessionModal = (dayId) => {
+    setCurrentDayId(dayId);
+    setShowAddSessionModal(true);
+  };
+  
+  // Open add day modal
+  const openAddDayModal = () => {
+    setShowAddDayModal(true);
+  };
+  
   // Save edited section
   const saveSection = (title, subsections) => {
-    setSections(sections.map(section => 
-      section.id === currentEditId 
-        ? { ...section, title, subsections } 
-        : section
-    ));
+    const isDayFormat = sections.some(section => section.isDay);
+    
+    if (isDayFormat) {
+      // Handle session editing in day format
+      const sessionId = currentEditId;
+      const [dayIdStr, sessionIdxStr] = sessionId.split('-');
+      const dayId = parseInt(dayIdStr, 10);
+      
+      setSections(sections.map(day => {
+        if (day.id === dayId) {
+          return {
+            ...day,
+            sessions: day.sessions.map(session => 
+              session.id === sessionId 
+                ? { ...session, title, subsections } 
+                : session
+            )
+          };
+        }
+        return day;
+      }));
+    } else {
+      // Handle section editing in section format
+      setSections(sections.map(section => 
+        section.id === currentEditId 
+          ? { ...section, title, subsections } 
+          : section
+      ));
+    }
+    
     setShowEditModal(false);
   };
   
@@ -242,22 +334,119 @@ function App() {
     setShowAddModal(false);
   };
   
-  // Move section up or down
-  const moveSection = (id, direction) => {
-    const index = sections.findIndex(s => s.id === id);
-    if (index === -1) return;
+  // Add new session to a day
+  const addNewSession = (dayId, title, subsections) => {
+    const dayIndex = sections.findIndex(day => day.id === dayId);
+    if (dayIndex === -1) return;
+    
+    const day = sections[dayIndex];
+    const sessionId = `${dayId}-${day.sessions.length + 1}`;
+    
+    const newSession = {
+      id: sessionId,
+      title,
+      subsections
+    };
+    
+    const updatedDay = {
+      ...day,
+      sessions: [...day.sessions, newSession]
+    };
     
     const newSections = [...sections];
-    
-    if (direction === 'up' && index > 0) {
-      // Move up
-      [newSections[index], newSections[index - 1]] = [newSections[index - 1], newSections[index]];
-    } else if (direction === 'down' && index < sections.length - 1) {
-      // Move down
-      [newSections[index], newSections[index + 1]] = [newSections[index + 1], newSections[index]];
-    }
-    
+    newSections[dayIndex] = updatedDay;
     setSections(newSections);
+    
+    setShowAddSessionModal(false);
+  };
+  
+  // Add new day
+  const addNewDay = (dayNumber) => {
+    const newId = Math.max(...(sections.length ? sections.map(s => s.id) : [0]), 0) + 1;
+    setSections([...sections, { 
+      id: newId, 
+      isDay: true,
+      day: dayNumber,
+      title: `Jour ${dayNumber}`,
+      sessions: []
+    }]);
+    setShowAddDayModal(false);
+  };
+  
+  // Move section up or down
+  const moveSection = (id, direction) => {
+    const isDayFormat = sections.some(section => section.isDay);
+    
+    if (isDayFormat) {
+      // For day-based format, we need to handle moving sessions within days
+      if (id.includes('-')) {
+        // It's a session ID in format "dayId-sessionIdx"
+        const [dayIdStr, sessionIdxStr] = id.split('-');
+        const dayId = parseInt(dayIdStr, 10);
+        const sessionIdx = parseInt(sessionIdxStr, 10) - 1; // Convert to 0-based index
+        
+        const dayIndex = sections.findIndex(day => day.id === dayId);
+        if (dayIndex === -1) return;
+        
+        const day = sections[dayIndex];
+        const sessionsArray = [...day.sessions];
+        
+        if (direction === 'up' && sessionIdx > 0) {
+          [sessionsArray[sessionIdx], sessionsArray[sessionIdx - 1]] = 
+            [sessionsArray[sessionIdx - 1], sessionsArray[sessionIdx]];
+        } else if (direction === 'down' && sessionIdx < sessionsArray.length - 1) {
+          [sessionsArray[sessionIdx], sessionsArray[sessionIdx + 1]] = 
+            [sessionsArray[sessionIdx + 1], sessionsArray[sessionIdx]];
+        }
+        
+        // Update session IDs to maintain the correct format
+        const updatedSessions = sessionsArray.map((session, idx) => ({
+          ...session,
+          id: `${dayId}-${idx + 1}`
+        }));
+        
+        const updatedDay = {
+          ...day,
+          sessions: updatedSessions
+        };
+        
+        const newSections = [...sections];
+        newSections[dayIndex] = updatedDay;
+        setSections(newSections);
+      } else {
+        // It's a day ID, move the entire day
+        const index = sections.findIndex(day => day.id === id);
+        if (index === -1) return;
+        
+        const newSections = [...sections];
+        
+        if (direction === 'up' && index > 0) {
+          [newSections[index], newSections[index - 1]] = 
+            [newSections[index - 1], newSections[index]];
+        } else if (direction === 'down' && index < sections.length - 1) {
+          [newSections[index], newSections[index + 1]] = 
+            [newSections[index + 1], newSections[index]];
+        }
+        
+        setSections(newSections);
+      }
+    } else {
+      // Original section moving logic
+      const index = sections.findIndex(s => s.id === id);
+      if (index === -1) return;
+      
+      const newSections = [...sections];
+      
+      if (direction === 'up' && index > 0) {
+        // Move up
+        [newSections[index], newSections[index - 1]] = [newSections[index - 1], newSections[index]];
+      } else if (direction === 'down' && index < sections.length - 1) {
+        // Move down
+        [newSections[index], newSections[index + 1]] = [newSections[index + 1], newSections[index]];
+      }
+      
+      setSections(newSections);
+    }
   };
   
   // Update form data
@@ -273,6 +462,27 @@ function App() {
   const closeErrorModal = () => {
     setShowErrorModal(false);
     setErrorMessage('');
+  };
+  
+  // Get the entity to edit (section or session)
+  const getEntityToEdit = () => {
+    if (!currentEditId) return null;
+    
+    const isDayFormat = sections.some(section => section.isDay);
+    
+    if (isDayFormat && currentEditId.includes('-')) {
+      // It's a session in day format
+      const [dayIdStr, sessionIdxStr] = currentEditId.split('-');
+      const dayId = parseInt(dayIdStr, 10);
+      
+      const day = sections.find(d => d.id === dayId);
+      if (!day) return null;
+      
+      return day.sessions.find(s => s.id === currentEditId);
+    } else {
+      // It's a regular section
+      return sections.find(s => s.id === currentEditId);
+    }
   };
   
   return (
@@ -299,9 +509,12 @@ function App() {
           {currentStep === 2 && (
             <Step2Plan 
               sections={sections} 
+              planType={formData.planType}
               onMoveSection={moveSection} 
               onEditSection={openEditModal} 
               onAddSection={openAddModal}
+              onAddSession={openAddSessionModal}
+              onAddDay={openAddDayModal}
               onPrevious={() => goToStep(1)} 
               onNext={() => goToStep(3)} 
             />
@@ -318,7 +531,7 @@ function App() {
           
           {showEditModal && (
             <EditSectionModal 
-              section={sections.find(s => s.id === currentEditId)} 
+              section={getEntityToEdit()} 
               onClose={() => setShowEditModal(false)} 
               onSave={saveSection} 
             />
@@ -328,6 +541,22 @@ function App() {
             <AddSectionModal 
               onClose={() => setShowAddModal(false)} 
               onAdd={addNewSection} 
+            />
+          )}
+          
+          {showAddSessionModal && (
+            <AddSessionModal 
+              dayId={currentDayId}
+              onClose={() => setShowAddSessionModal(false)} 
+              onAdd={addNewSession} 
+            />
+          )}
+          
+          {showAddDayModal && (
+            <AddDayModal 
+              currentDays={sections.filter(s => s.isDay).map(day => day.day)}
+              onClose={() => setShowAddDayModal(false)} 
+              onAdd={addNewDay} 
             />
           )}
           
