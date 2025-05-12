@@ -4,13 +4,16 @@ import time
 import traceback
 from werkzeug.utils import secure_filename
 
+from app.services.plan_jour_generator import generate_plan_jour
+from app.services.content_jour_generator import generate_content_jour
+
 # Create a blueprint for the main routes
 main = Blueprint('main', __name__)
 
 # Import service functions (these will be implemented in the services files)
 from app.services.plan_generator import generate_plan
 from app.services.content_generator import generate_content
-from app.services.pdf_generator import create_pdf
+from app.services.pdf_generator import create_pdf, create_pdf_jour
 from app.services.pptx_generator import generate_powerpoint
 
 def allowed_file(filename):
@@ -192,3 +195,168 @@ def download_file(filename):
         filename,
         as_attachment=True
     )
+
+@main.route('/api/generate-plan-jour', methods=['POST'])
+def api_generate_plan_jour():
+    """Generate a presentation plan organized by days based on provided parameters."""
+    try:
+        # Get JSON data from request
+        data = request.json
+        
+        # Extract required parameters
+        domaine = data.get('domaine')
+        sujet = data.get('sujet')
+        description_sujet = data.get('description_sujet', '')
+        niveau_apprenant = data.get('niveau_apprenant')
+        nombre_jours = data.get('nombre_jours', 2)  # Default to 2 days if not specified
+        
+        # Validate required parameters
+        if not all([domaine, sujet, niveau_apprenant]):
+            return jsonify({'error': 'Missing required fields: domaine, sujet, niveau_apprenant'}), 400
+        
+        # Validate nombre_jours is an integer
+        try:
+            nombre_jours = int(nombre_jours)
+            if nombre_jours < 1:
+                return jsonify({'error': 'nombre_jours must be at least 1'}), 400
+        except (TypeError, ValueError):
+            return jsonify({'error': 'nombre_jours must be a valid integer'}), 400
+        
+        # Generate the daily plan
+        start_time = time.time()
+        plan_jour = generate_plan_jour(domaine, sujet, description_sujet, niveau_apprenant, nombre_jours)
+        execution_time = round(time.time() - start_time, 2)
+        
+        # Return the plan with timing information
+        return jsonify({
+            'success': True,
+            'execution_time_seconds': execution_time,
+            'plan_jour': plan_jour
+        })
+    
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error generating daily plan: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': f'Failed to generate daily plan: {str(e)}'}), 500
+    
+@main.route('/api/generate-content-jour', methods=['POST'])
+def api_generate_content_jour():
+    """Generate detailed content for a daily presentation plan."""
+    try:
+        # Get JSON data from request
+        data = request.json
+        
+        # Extract required parameters
+        domaine = data.get('domaine')
+        sujet = data.get('sujet')
+        plan_jour = data.get('plan_jour')
+        
+        # Validate required parameters
+        if not all([domaine, sujet, plan_jour]):
+            return jsonify({'error': 'Missing required fields: domaine, sujet, plan_jour'}), 400
+        
+        # Generate the content
+        start_time = time.time()
+        content = generate_content_jour(domaine, sujet, plan_jour)
+        execution_time = round(time.time() - start_time, 2)
+        
+        # Return the content with timing information
+        return jsonify({
+            'success': True,
+            'execution_time_seconds': execution_time,
+            'content': content
+        })
+    
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error generating daily content: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': f'Failed to generate daily content: {str(e)}'}), 500
+    
+@main.route('/api/generate-files-jour', methods=['POST'])
+def api_generate_files_jour():
+    """Generate PDF and/or PPTX files from the provided daily content."""
+    try:
+        # Get JSON data from request
+        data = request.json
+        
+        # Extract required parameters
+        sujet = data.get('sujet')
+        contenu_jour = data.get('contenu')
+        format_type = data.get('format', 'pdf')  # pdf, pptx, or both
+        trainer_name = data.get('trainer_name', 'AIT TALEB AYOUB')
+        logo_path = data.get('logo_path', os.path.join(current_app.config['UPLOAD_FOLDER'], 'ODC_logo.jpeg'))
+        
+        # Validate required parameters
+        if not all([sujet, contenu_jour]):
+            return jsonify({'error': 'Missing required fields: sujet, contenu'}), 400
+        
+        # Check if the format is valid
+        if format_type not in ['pdf', 'pptx', 'both']:
+            return jsonify({'error': 'Invalid format. Must be one of: pdf, pptx, both'}), 400
+        
+        file_paths = []
+        start_time = time.time()
+        
+        # Generate PDF if requested
+        if format_type in ['pdf', 'both']:
+            pdf_filename = f"{sujet}_{int(time.time())}.pdf"
+            pdf_path = os.path.join(current_app.config['OUTPUT_FOLDER'], pdf_filename)
+            
+            create_pdf_jour(pdf_path, contenu_jour, logo_path, sujet, trainer_name)
+            file_paths.append({
+                'type': 'pdf',
+                'filename': pdf_filename,
+                'path': pdf_path,
+                'download_url': f"/api/download/{pdf_filename}"
+            })
+        
+        # Generate PPTX if requested (using the regular function for now)
+        if format_type in ['pptx', 'both']:
+            pptx_filename = f"{sujet}_{int(time.time())}.pptx"
+            pptx_path = os.path.join(current_app.config['OUTPUT_FOLDER'], pptx_filename)
+            
+            # You would need to update the PowerPoint generator too, but for now using existing function
+            # You could implement a similar create_pptx_jour function
+            adapted_content = []
+            for day_index, day_content in enumerate(contenu_jour):
+                day_num = day_index + 1
+                # Add day title section
+                day_section = {
+                    "title": f"Jour {day_num}",
+                    "subsections": [
+                        {
+                            "title": f"Programme du Jour {day_num}",
+                            "content": f"Voici le contenu de la formation pour le jour {day_num}."
+                        }
+                    ]
+                }
+                adapted_content.append([day_section])
+                
+                # Add the day's content
+                for session_list in day_content:
+                    adapted_content.append(session_list)
+            
+            generate_powerpoint(sujet, adapted_content, trainer_name, logo_path, pptx_path)
+            file_paths.append({
+                'type': 'pptx',
+                'filename': pptx_filename,
+                'path': pptx_path,
+                'download_url': f"/api/download/{pptx_filename}"
+            })
+        
+        execution_time = round(time.time() - start_time, 2)
+        
+        # Return information about generated files
+        return jsonify({
+            'success': True,
+            'execution_time_seconds': execution_time,
+            'files': file_paths
+        })
+    
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error generating files: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': f'Failed to generate files: {str(e)}'}), 500
