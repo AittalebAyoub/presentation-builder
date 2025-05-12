@@ -13,7 +13,7 @@ import AddSessionModal from './components/AddSessionModal';
 import AddDayModal from './components/AddDayModal';
 import ErrorModal from './components/ErrorModal';
 import LoadingSpinner from './components/LoadingSpinner';
-import { generatePlan, generatePlanJour, generateContent, generateFiles, getDownloadUrl } from './services/api';
+import { generatePlan, generatePlanJour, generateContent, generateContentJour, generateFiles, getDownloadUrl } from './services/api';
 
 // Import the CSS for the loading spinner
 import './components/LoadingSpinner.css';
@@ -55,6 +55,7 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState(0); // 0: not started, 1: generating plan, 2: generating content, 3: generating files
   const [generationProgress, setGenerationProgress] = useState(0);
+  const [currentDay, setCurrentDay] = useState(null);
   
   // State for loading spinner
   const [isLoadingPlan, setIsLoadingPlan] = useState(false);
@@ -101,7 +102,7 @@ function App() {
     if (isDayFormat) {
       return sections.map(day => ({
         jour: day.day,
-        session: day.sessions.map(session => ({
+        sessions: day.sessions.map(session => ({
           title: session.title,
           subsections: session.subsections
         }))
@@ -211,15 +212,36 @@ function App() {
       // Convert our sections to API plan format
       const apiPlan = convertSectionsToApiPlan();
       
-      // Generate content
-      const contentParams = {
-        subject: formData.subject,
-        planType: formData.planType,
-        plan: apiPlan
-      };
+      // Determine if we're using day-based format
+      const isDayFormat = sections.some(section => section.isDay);
       
-      console.log('Requesting content generation with params:', contentParams);
-      const contentResponse = await generateContent(contentParams);
+      // Generate content with the appropriate API call
+      let contentResponse;
+      
+      if (isDayFormat) {
+        // For day-based plans, use the content-jour endpoint
+        setLoadingMessage(`Préparation de la génération du contenu par jour...`);
+        
+        const contentParams = {
+          subject: formData.subject,
+          planType: formData.planType,
+          plan: apiPlan
+        };
+        
+        console.log('Requesting day-based content generation with params:', contentParams);
+        contentResponse = await generateContentJour(contentParams);
+      } else {
+        // For section-based plans, use the regular content endpoint
+        const contentParams = {
+          subject: formData.subject,
+          planType: formData.planType,
+          plan: apiPlan
+        };
+        
+        console.log('Requesting content generation with params:', contentParams);
+        contentResponse = await generateContent(contentParams);
+      }
+      
       console.log('Content response received:', contentResponse);
       setApiContentResponse(contentResponse);
       
@@ -231,12 +253,16 @@ function App() {
       setGenerationProgress(75);
       setLoadingMessage(`Génération des fichiers ${formData.format.toUpperCase()} en cours...`);
       
+      // Determine which content field to use based on the format
+      const contentData = isDayFormat ? contentResponse.content : contentResponse.content;
+      
       // Generate files
       const filesParams = {
         subject: formData.subject,
-        content: contentResponse.content,
+        content: contentData,
         format: formData.format,
-        trainerName: formData.trainerName || 'Presenter'
+        trainerName: formData.trainerName || 'Presenter',
+        isDayFormat: isDayFormat
       };
       
       console.log('Requesting file generation with params:', filesParams);
@@ -252,6 +278,7 @@ function App() {
       setIsGenerating(false);
       setIsLoadingPlan(false);
       setLoadingMessage('');
+      setCurrentDay(null);
     } catch (error) {
       console.error('Content/file generation error:', error);
       handleApiError(error, generationStep);
@@ -526,6 +553,7 @@ function App() {
               progress={generationProgress}
               filesResponse={apiFilesResponse}
               onDownload={handleDownload}
+              currentDay={currentDay}
             />
           )}
           
