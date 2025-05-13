@@ -1,0 +1,47 @@
+[
+  {
+    "question": "Quel mot-clé est utilisé pour définir une fonction en Python ?",
+    "choix_1": "function",
+    "choix_2": "def",
+    "choix_3": "fun",
+    "reponse": [
+      "choix_2"
+    ]
+  },
+  {
+    "question": "Quelle structure de contrôle est utilisée pour les conditions en Python ?",
+    "choix_1": "if/elif/else",
+    "choix_2": "for",
+    "choix_3": "while",
+    "reponse": [
+      "choix_1"
+    ]
+  },
+  {
+    "question": "Quel est le type de boucle utilisé pour itérer sur une séquence en Python ?",
+    "choix_1": "for",
+    "choix_2": "while",
+    "choix_3": "loop",
+    "reponse": [
+      "choix_1"
+    ]
+  },
+  {
+    "question": "Quel est le type de boucle utilisé pour répéter un bloc de code tant qu'une condition est vraie en Python ?",
+    "choix_1": "for",
+    "choix_2": "while",
+    "choix_3": "loop",
+    "reponse": [
+      "choix_2"
+    ]
+  },
+  {
+    "question": "Quel est le type de boucle utilisé pour répéter un bloc de code tant qu'une condition est vraie en Python ?",
+    "choix_1": "for",
+    "choix_2": "while",
+    "choix_3": "loop",
+    "reponse": [
+      "choix_2"
+    ]
+  }
+]

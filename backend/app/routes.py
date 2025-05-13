@@ -1,97 +1,59 @@
-from flask import Blueprint, request, jsonify, current_app, send_from_directory
+# app/routes.py
+from flask import Blueprint, jsonify, request, current_app, url_for, send_from_directory
 import os
-import time
-import traceback
-from werkzeug.utils import secure_filename
+import json
+import logging
+import uuid
+from app.services import (
+    generate_plan, generate_content, create_pdf, generate_powerpoint, 
+    create_quiz, create_google_form_quiz, share_form_with_user, notify_users_about_quiz
+)
+from app.utils.helpers import ensure_dir, save_to_json, text_to_safe_filename
 
-from app.services.plan_jour_generator import generate_plan_jour
-from app.services.content_jour_generator import generate_content_jour
+# Set up logging
+logger = logging.getLogger(__name__)
 
-# Create a blueprint for the main routes
+# Create main blueprint
 main = Blueprint('main', __name__)
-
-# Import service functions (these will be implemented in the services files)
-from app.services.plan_generator import generate_plan
-from app.services.content_generator import generate_content
-from app.services.pdf_generator import create_pdf, create_pdf_jour
-from app.services.pptx_generator import generate_powerpoint
-
-def allowed_file(filename):
-    """Check if the file extension is allowed."""
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
-
-@main.route('/api/upload', methods=['POST'])
-def upload_file():
-    """Handle file uploads (for logos, etc.)."""
-    # Check if file part exists in request
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part in the request'}), 400
-    
-    file = request.files['file']
-    
-    # Check if a file was selected
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    # Check if the file type is allowed
-    if file and allowed_file(file.filename):
-        # Secure the filename to prevent directory traversal attacks
-        filename = secure_filename(file.filename)
-        # Create a unique filename to prevent overwriting
-        unique_filename = f"{int(time.time())}_{filename}"
-        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
-        
-        # Save the file
-        file.save(filepath)
-        return jsonify({
-            'success': True, 
-            'filename': unique_filename,
-            'filepath': filepath
-        })
-    
-    return jsonify({'error': 'File type not allowed'}), 400
 
 @main.route('/api/generate-plan', methods=['POST'])
 def api_generate_plan():
-    """Generate a presentation plan based on provided parameters."""
+    """Generate a presentation plan based on provided parameters"""
     try:
-        # Get JSON data from request
         data = request.json
         
         # Extract required parameters
         domaine = data.get('domaine')
         sujet = data.get('sujet')
         description_sujet = data.get('description_sujet', '')
-        niveau_apprenant = data.get('niveau_apprenant')
+        niveau_apprenant = data.get('niveau_apprenant', 'intermediaire')
         
-        # Validate required parameters
-        if not all([domaine, sujet, niveau_apprenant]):
-            return jsonify({'error': 'Missing required fields: domaine, sujet, niveau_apprenant'}), 400
+        # Check for required parameters
+        if not domaine or not sujet:
+            return jsonify({'success': False, 'message': 'Missing required parameters'}), 400
         
-        # Generate the plan
-        start_time = time.time()
+        # Generate plan
         plan = generate_plan(domaine, sujet, description_sujet, niveau_apprenant)
-        execution_time = round(time.time() - start_time, 2)
         
-        # Return the plan with timing information
+        # Save plan to JSON file
+        plan_filename = f"{text_to_safe_filename(sujet)}_plan.json"
+        save_to_json(plan, plan_filename)
+        
+        # Return response
         return jsonify({
             'success': True,
-            'execution_time_seconds': execution_time,
-            'plan': plan
+            'plan': plan,
+            'message': 'Plan generated successfully'
         })
-    
+        
     except Exception as e:
-        # Log the error for debugging
-        print(f"Error generating plan: {str(e)}")
-        print(traceback.format_exc())
-        return jsonify({'error': f'Failed to generate plan: {str(e)}'}), 500
+        logger.exception(f"Error generating plan: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error generating plan: {str(e)}'}), 500
 
 @main.route('/api/generate-content', methods=['POST'])
 def api_generate_content():
-    """Generate presentation content based on the provided plan."""
+    """Generate content based on a presentation plan"""
     try:
-        # Get JSON data from request
         data = request.json
         
         # Extract required parameters
@@ -99,264 +61,369 @@ def api_generate_content():
         sujet = data.get('sujet')
         plan = data.get('plan')
         
-        # Validate required parameters
-        if not all([domaine, sujet, plan]):
-            return jsonify({'error': 'Missing required fields: domaine, sujet, plan'}), 400
+        # Check for required parameters
+        if not domaine or not sujet or not plan:
+            return jsonify({'success': False, 'message': 'Missing required parameters'}), 400
         
-        # Generate the content
-        start_time = time.time()
+        # Generate content
         content = generate_content(domaine, sujet, plan)
-        execution_time = round(time.time() - start_time, 2)
         
-        # Return the content with timing information
+        # Save content to JSON file
+        content_filename = f"{text_to_safe_filename(sujet)}_content.json"
+        save_to_json(content, content_filename)
+        
+        # Return response
         return jsonify({
             'success': True,
-            'execution_time_seconds': execution_time,
-            'content': content
+            'content': content,
+            'message': 'Content generated successfully'
         })
-    
+        
     except Exception as e:
-        # Log the error for debugging
-        print(f"Error generating content: {str(e)}")
-        print(traceback.format_exc())
-        return jsonify({'error': f'Failed to generate content: {str(e)}'}), 500
+        logger.exception(f"Error generating content: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error generating content: {str(e)}'}), 500
 
 @main.route('/api/generate-files', methods=['POST'])
 def api_generate_files():
-    """Generate PDF and/or PPTX files from the provided content."""
+    """Generate presentation files (PDF/PPTX) from content"""
     try:
-        # Get JSON data from request
         data = request.json
         
         # Extract required parameters
         sujet = data.get('sujet')
         contenu = data.get('contenu')
-        format_type = data.get('format', 'pdf')  # pdf, pptx, or both
-        trainer_name = data.get('trainer_name', 'AIT TALEB AYOUB')
-        logo_path = data.get('logo_path', os.path.join(current_app.config['UPLOAD_FOLDER'], 'ODC_logo.jpeg'))
+        format_type = data.get('format', 'pdf')
+        trainer_name = data.get('trainer_name', 'Formateur')
         
-        # Validate required parameters
-        if not all([sujet, contenu]):
-            return jsonify({'error': 'Missing required fields: sujet, contenu'}), 400
+        # Check for required parameters
+        if not sujet or not contenu:
+            return jsonify({'success': False, 'message': 'Missing required parameters'}), 400
         
-        # Check if the format is valid
-        if format_type not in ['pdf', 'pptx', 'both']:
-            return jsonify({'error': 'Invalid format. Must be one of: pdf, pptx, both'}), 400
+        # Create output directory if it doesn't exist
+        output_dir = current_app.config['OUTPUT_FOLDER']
+        ensure_dir(output_dir)
         
-        file_paths = []
-        start_time = time.time()
+        # Generate files based on requested format
+        files = []
+        safe_filename = text_to_safe_filename(sujet)
         
-        # Generate PDF if requested
+        # Logo path - use default if not provided
+        logo_path = os.path.join(current_app.root_path, 'static', 'img', 'ODC_logo.jpeg')
+        
         if format_type in ['pdf', 'both']:
-            pdf_filename = f"{sujet}_{int(time.time())}.pdf"
-            pdf_path = os.path.join(current_app.config['OUTPUT_FOLDER'], pdf_filename)
-            
+            # Generate PDF
+            pdf_filename = f"{safe_filename}.pdf"
+            pdf_path = os.path.join(output_dir, pdf_filename)
             create_pdf(pdf_path, contenu, logo_path, sujet, trainer_name)
-            file_paths.append({
+            
+            # Create download URL
+            pdf_url = url_for('main.download_file', filename=pdf_filename)
+            files.append({
                 'type': 'pdf',
                 'filename': pdf_filename,
-                'path': pdf_path,
-                'download_url': f"/api/download/{pdf_filename}"
+                'download_url': pdf_url
             })
         
-        # Generate PPTX if requested
         if format_type in ['pptx', 'both']:
-            pptx_filename = f"{sujet}_{int(time.time())}.pptx"
-            pptx_path = os.path.join(current_app.config['OUTPUT_FOLDER'], pptx_filename)
-            
+            # Generate PPTX
+            pptx_filename = f"{safe_filename}.pptx"
+            pptx_path = os.path.join(output_dir, pptx_filename)
             generate_powerpoint(sujet, contenu, trainer_name, logo_path, pptx_path)
-            file_paths.append({
+            
+            # Create download URL
+            pptx_url = url_for('main.download_file', filename=pptx_filename)
+            files.append({
                 'type': 'pptx',
                 'filename': pptx_filename,
-                'path': pptx_path,
-                'download_url': f"/api/download/{pptx_filename}"
+                'download_url': pptx_url
             })
         
-        execution_time = round(time.time() - start_time, 2)
-        
-        # Return information about generated files
+        # Return response
         return jsonify({
             'success': True,
-            'execution_time_seconds': execution_time,
-            'files': file_paths
+            'files': files,
+            'message': 'Files generated successfully'
         })
-    
+        
     except Exception as e:
-        # Log the error for debugging
-        print(f"Error generating files: {str(e)}")
-        print(traceback.format_exc())
-        return jsonify({'error': f'Failed to generate files: {str(e)}'}), 500
+        logger.exception(f"Error generating files: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error generating files: {str(e)}'}), 500
 
-@main.route('/api/download/<filename>', methods=['GET'])
+@main.route('/api/download/<filename>')
 def download_file(filename):
-    """Download a generated file."""
+    """Download a generated file"""
     return send_from_directory(
-        current_app.config['OUTPUT_FOLDER'],
-        filename,
+        current_app.config['OUTPUT_FOLDER'], 
+        filename, 
         as_attachment=True
     )
 
-@main.route('/api/generate-plan-jour', methods=['POST'])
-def api_generate_plan_jour():
-    """Generate a presentation plan organized by days based on provided parameters."""
+# New routes for quiz functionality
+@main.route('/api/generate-quiz', methods=['POST'])
+def api_generate_quiz():
+    """Generate quiz questions based on presentation content"""
     try:
-        # Get JSON data from request
         data = request.json
         
         # Extract required parameters
-        domaine = data.get('domaine')
-        sujet = data.get('sujet')
-        description_sujet = data.get('description_sujet', '')
-        niveau_apprenant = data.get('niveau_apprenant')
-        nombre_jours = data.get('nombre_jours', 2)  # Default to 2 days if not specified
+        content = data.get('content')
+        level = data.get('level', current_app.config['DEFAULT_QUIZ_DIFFICULTY'])
+        nbr_qst = data.get('nbr_qst', current_app.config['DEFAULT_QUIZ_QUESTIONS'])
+        title = data.get('title', 'Quiz de formation')
         
-        # Validate required parameters
-        if not all([domaine, sujet, niveau_apprenant]):
-            return jsonify({'error': 'Missing required fields: domaine, sujet, niveau_apprenant'}), 400
+        # Check for required parameters
+        if not content:
+            return jsonify({'success': False, 'message': 'Missing content parameter'}), 400
         
-        # Validate nombre_jours is an integer
-        try:
-            nombre_jours = int(nombre_jours)
-            if nombre_jours < 1:
-                return jsonify({'error': 'nombre_jours must be at least 1'}), 400
-        except (TypeError, ValueError):
-            return jsonify({'error': 'nombre_jours must be a valid integer'}), 400
+        # Validate difficulty level
+        if level not in current_app.config['QUIZ_DIFFICULTY_LEVELS']:
+            level = current_app.config['DEFAULT_QUIZ_DIFFICULTY']
         
-        # Generate the daily plan
-        start_time = time.time()
-        plan_jour = generate_plan_jour(domaine, sujet, description_sujet, niveau_apprenant, nombre_jours)
-        execution_time = round(time.time() - start_time, 2)
+        # Convert nbr_qst to int if necessary
+        if isinstance(nbr_qst, str):
+            try:
+                nbr_qst = int(nbr_qst)
+            except ValueError:
+                nbr_qst = current_app.config['DEFAULT_QUIZ_QUESTIONS']
         
-        # Return the plan with timing information
+        # Generate quiz
+        quiz_data, error = create_quiz(content, level, nbr_qst)
+        
+        if not quiz_data or error:
+            return jsonify({
+                'success': False, 
+                'message': error or 'Failed to generate quiz'
+            }), 500
+        
+        # Save quiz data
+        safe_title = text_to_safe_filename(title)
+        quiz_filename = f"{safe_title}_quiz_{uuid.uuid4().hex[:8]}.json"
+        saved_path = save_to_json(quiz_data, quiz_filename)
+        
+        # Return response
         return jsonify({
             'success': True,
-            'execution_time_seconds': execution_time,
-            'plan_jour': plan_jour
+            'quiz_data': quiz_data,
+            'quiz_file': quiz_filename,
+            'title': title,
+            'message': 'Quiz generated successfully'
         })
-    
+        
     except Exception as e:
-        # Log the error for debugging
-        print(f"Error generating daily plan: {str(e)}")
-        print(traceback.format_exc())
-        return jsonify({'error': f'Failed to generate daily plan: {str(e)}'}), 500
-    
-@main.route('/api/generate-content-jour', methods=['POST'])
-def api_generate_content_jour():
-    """Generate detailed content for a daily presentation plan."""
+        logger.exception(f"Error generating quiz: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error generating quiz: {str(e)}'}), 500
+
+@main.route('/api/create-google-form', methods=['POST'])
+def api_create_google_form():
+    """Create a Google Form for the quiz"""
     try:
-        # Get JSON data from request
         data = request.json
         
         # Extract required parameters
-        domaine = data.get('domaine')
-        sujet = data.get('sujet')
-        plan_jour = data.get('plan_jour')
+        quiz_data = data.get('quiz_data')
+        title = data.get('title', 'Quiz de formation')
         
-        # Validate required parameters
-        if not all([domaine, sujet, plan_jour]):
-            return jsonify({'error': 'Missing required fields: domaine, sujet, plan_jour'}), 400
+        # Check for required parameters
+        if not quiz_data:
+            return jsonify({'success': False, 'message': 'Missing quiz_data parameter'}), 400
         
-        # Generate the content
-        start_time = time.time()
-        content = generate_content_jour(domaine, sujet, plan_jour)
-        execution_time = round(time.time() - start_time, 2)
+        # Create Google Form
+        form_info = create_google_form_quiz(quiz_data, title)
         
-        # Return the content with timing information
+        if not form_info:
+            return jsonify({
+                'success': False, 
+                'message': 'Failed to create Google Form'
+            }), 500
+        
+        # Remove credentials from response
+        response_info = {
+            'form_id': form_info['form_id'],
+            'edit_url': form_info['edit_url'],
+            'view_url': form_info['view_url'],
+            'title': form_info['title']
+        }
+        
+        # Store form info for sharing (remove credentials first)
+        form_info_to_save = response_info.copy()
+        form_session_id = uuid.uuid4().hex
+        session_filename = f"form_session_{form_session_id}.json"
+        save_to_json(form_info_to_save, session_filename)
+        
+        # Return response
         return jsonify({
             'success': True,
-            'execution_time_seconds': execution_time,
-            'content': content
+            'form': response_info,
+            'session_id': form_session_id,
+            'message': 'Google Form created successfully'
         })
-    
+        
     except Exception as e:
-        # Log the error for debugging
-        print(f"Error generating daily content: {str(e)}")
-        print(traceback.format_exc())
-        return jsonify({'error': f'Failed to generate daily content: {str(e)}'}), 500
-    
-@main.route('/api/generate-files-jour', methods=['POST'])
-def api_generate_files_jour():
-    """Generate PDF and/or PPTX files from the provided daily content."""
+        logger.exception(f"Error creating Google Form: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error creating Google Form: {str(e)}'}), 500
+
+@main.route('/api/share-form', methods=['POST'])
+def api_share_form():
+    """Share a Google Form with users"""
     try:
-        # Get JSON data from request
         data = request.json
         
         # Extract required parameters
-        sujet = data.get('sujet')
-        contenu_jour = data.get('contenu')
-        format_type = data.get('format', 'pdf')  # pdf, pptx, or both
-        trainer_name = data.get('trainer_name', 'AIT TALEB AYOUB')
-        logo_path = data.get('logo_path', os.path.join(current_app.config['UPLOAD_FOLDER'], 'ODC_logo.jpeg'))
+        form_id = data.get('form_id')
+        emails = data.get('emails', [])
+        trainer_emails = data.get('trainer_emails', [])
+        session_id = data.get('session_id')
         
-        # Validate required parameters
-        if not all([sujet, contenu_jour]):
-            return jsonify({'error': 'Missing required fields: sujet, contenu'}), 400
+        # Check for required parameters
+        if not form_id or (not emails and not trainer_emails):
+            return jsonify({
+                'success': False, 
+                'message': 'Missing required parameters (form_id, emails)'
+            }), 400
         
-        # Check if the format is valid
-        if format_type not in ['pdf', 'pptx', 'both']:
-            return jsonify({'error': 'Invalid format. Must be one of: pdf, pptx, both'}), 400
-        
-        file_paths = []
-        start_time = time.time()
-        
-        # Generate PDF if requested
-        if format_type in ['pdf', 'both']:
-            pdf_filename = f"{sujet}_{int(time.time())}.pdf"
-            pdf_path = os.path.join(current_app.config['OUTPUT_FOLDER'], pdf_filename)
+        # Get form info from session if available
+        form_info = None
+        if session_id:
+            session_filename = f"form_session_{session_id}.json"
+            form_info_path = os.path.join(current_app.config['OUTPUT_FOLDER'], session_filename)
             
-            create_pdf_jour(pdf_path, contenu_jour, logo_path, sujet, trainer_name)
-            file_paths.append({
-                'type': 'pdf',
-                'filename': pdf_filename,
-                'path': pdf_path,
-                'download_url': f"/api/download/{pdf_filename}"
+            if os.path.exists(form_info_path):
+                with open(form_info_path, 'r') as f:
+                    form_info = json.load(f)
+        
+        if not form_info:
+            form_info = {
+                'form_id': form_id,
+                'title': data.get('title', 'Quiz de formation'),
+                'edit_url': data.get('edit_url'),
+                'view_url': data.get('view_url')
+            }
+        
+        # Prepare users list for notification
+        users_list = []
+        
+        # Share with trainers (who can edit)
+        for email in trainer_emails:
+            # Share the form
+            shared = share_form_with_user(form_id, email)
+            
+            # Add to notification list
+            if shared:
+                users_list.append({
+                    'email': email,
+                    'is_trainer': True
+                })
+        
+        # Add regular users to notification list
+        for email in emails:
+            users_list.append({
+                'email': email,
+                'is_trainer': False
             })
         
-        # Generate PPTX if requested (using the regular function for now)
-        if format_type in ['pptx', 'both']:
-            pptx_filename = f"{sujet}_{int(time.time())}.pptx"
-            pptx_path = os.path.join(current_app.config['OUTPUT_FOLDER'], pptx_filename)
-            
-            # You would need to update the PowerPoint generator too, but for now using existing function
-            # You could implement a similar create_pptx_jour function
-            adapted_content = []
-            for day_index, day_content in enumerate(contenu_jour):
-                day_num = day_index + 1
-                # Add day title section
-                day_section = {
-                    "title": f"Jour {day_num}",
-                    "subsections": [
-                        {
-                            "title": f"Programme du Jour {day_num}",
-                            "content": f"Voici le contenu de la formation pour le jour {day_num}."
-                        }
-                    ]
-                }
-                adapted_content.append([day_section])
-                
-                # Add the day's content
-                for session_list in day_content:
-                    adapted_content.append(session_list)
-            
-            generate_powerpoint(sujet, adapted_content, trainer_name, logo_path, pptx_path)
-            file_paths.append({
-                'type': 'pptx',
-                'filename': pptx_filename,
-                'path': pptx_path,
-                'download_url': f"/api/download/{pptx_filename}"
-            })
+        # Send email notifications
+        if users_list:
+            notification_results = notify_users_about_quiz(form_info, users_list)
+        else:
+            notification_results = {'successful': [], 'failed': []}
         
-        execution_time = round(time.time() - start_time, 2)
-        
-        # Return information about generated files
+        # Return response
         return jsonify({
             'success': True,
-            'execution_time_seconds': execution_time,
-            'files': file_paths
+            'form_id': form_id,
+            'shared_with': notification_results,
+            'message': 'Form shared successfully'
         })
-    
+        
     except Exception as e:
-        # Log the error for debugging
-        print(f"Error generating files: {str(e)}")
-        print(traceback.format_exc())
-        return jsonify({'error': f'Failed to generate files: {str(e)}'}), 500
+        logger.exception(f"Error sharing form: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error sharing form: {str(e)}'}), 500
+
+@main.route('/api/quiz-workflow', methods=['POST'])
+def api_quiz_workflow():
+    """Complete quiz workflow: generate, create form, and share"""
+    try:
+        data = request.json
+        
+        # Extract required parameters
+        content = data.get('content')
+        title = data.get('title', 'Quiz de formation')
+        level = data.get('level', current_app.config['DEFAULT_QUIZ_DIFFICULTY'])
+        nbr_qst = data.get('nbr_qst', current_app.config['DEFAULT_QUIZ_QUESTIONS'])
+        emails = data.get('emails', [])
+        trainer_emails = data.get('trainer_emails', [])
+        
+        # Check for required parameters
+        if not content:
+            return jsonify({'success': False, 'message': 'Missing content parameter'}), 400
+        
+        # Step 1: Generate quiz
+        quiz_data, error = create_quiz(content, level, nbr_qst)
+        
+        if not quiz_data or error:
+            return jsonify({
+                'success': False, 
+                'message': error or 'Failed to generate quiz'
+            }), 500
+        
+        # Step 2: Create Google Form
+        form_info = create_google_form_quiz(quiz_data, title)
+        
+        if not form_info:
+            return jsonify({
+                'success': False, 
+                'message': 'Failed to create Google Form'
+            }), 500
+        
+        # Step 3: Share with users
+        users_list = []
+        
+        # Share with trainers (who can edit)
+        for email in trainer_emails:
+            # Share using the credentials from form creation
+            shared = share_form_with_user(
+                form_info['form_id'], 
+                email, 
+                form_info.get('credentials')
+            )
+            
+            # Add to notification list
+            if shared:
+                users_list.append({
+                    'email': email,
+                    'is_trainer': True
+                })
+        
+        # Add regular users to notification list
+        for email in emails:
+            users_list.append({
+                'email': email,
+                'is_trainer': False
+            })
+        
+        # Send email notifications
+        if users_list:
+            notification_results = notify_users_about_quiz(form_info, users_list)
+        else:
+            notification_results = {'successful': [], 'failed': []}
+        
+        # Prepare response
+        response_info = {
+            'form_id': form_info['form_id'],
+            'edit_url': form_info['edit_url'],
+            'view_url': form_info['view_url'],
+            'title': form_info['title']
+        }
+        
+        # Return response with all information
+        return jsonify({
+            'success': True,
+            'quiz_data': quiz_data,
+            'form': response_info,
+            'shared_with': notification_results,
+            'message': 'Quiz workflow completed successfully'
+        })
+        
+    except Exception as e:
+        logger.exception(f"Error in quiz workflow: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error in quiz workflow: {str(e)}'}), 500
