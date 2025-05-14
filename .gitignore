@@ -24,3 +24,5 @@ yarn-error.log*
 
 #credentials
 /backend/credentials
+
+/backend/app/static

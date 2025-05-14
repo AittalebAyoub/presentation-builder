@@ -6,3 +6,9 @@ from app.services.pptx_generator import generate_powerpoint
 from app.services.quiz_generator import create_quiz
 from app.services.google_forms_service import create_google_form_quiz, share_form_with_user
 from app.services.email_service import send_email, send_quiz_notification, notify_users_about_quiz
+# Import new multi-quiz generator functions
+from app.services.multi_quiz_generator import (
+    generate_quiz_for_days,
+    generate_quiz_for_sections,
+    create_multiple_forms
+)
