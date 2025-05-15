@@ -430,3 +430,44 @@ export const shareQuizForms = async (params) => {
     throw error;
   }
 };
+
+
+/**
+ * Generate a single quiz based on content
+ * @param {Object} params - Parameters for quiz generation
+ * @returns {Promise} - The generated quiz and Google Form
+ */
+export const generateSingleQuiz = async (params) => {
+  try {
+    console.log('Sending single quiz generation request to:', `${API_BASE_URL}/api/quiz-workflow`);
+    
+    const response = await fetch(`${API_BASE_URL}/api/quiz-workflow`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        content: params.content,
+        title: params.title,
+        level: params.level,
+        nbr_qst: params.totalQuestions,
+        emails: params.emails || [],
+        trainer_emails: params.trainerEmails || []
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Response not OK:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('Error text:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Single quiz generation response data:', data);
+    return data;
+  } catch (error) {
+    console.error('Error generating single quiz:', error);
+    throw error;
+  }
+};

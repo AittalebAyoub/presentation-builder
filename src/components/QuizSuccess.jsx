@@ -110,6 +110,31 @@ const QuizSuccess = ({ quizResults, onClose }) => {
     );
   };
 
+  // Render recipient list if available
+  const renderRecipients = () => {
+    if (!quizResults || !quizResults.shared_with) return null;
+    
+    const { successful = [] } = quizResults.shared_with;
+    
+    if (successful.length === 0) return null;
+    
+    return (
+      <div className="email-list" style={{ marginBottom: '1.5rem' }}>
+        <h4 style={{ marginBottom: '0.75rem', fontSize: '1.1rem' }}>Destinataires :</h4>
+        <div>
+          {successful.map((email, index) => (
+            <span 
+              key={index} 
+              className={`email-tag ${email.is_trainer ? 'trainer' : ''}`}
+            >
+              {email.email || email}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="quiz-success fade-in card">
       <h2>Génération de Quiz</h2>
@@ -139,9 +164,20 @@ const QuizSuccess = ({ quizResults, onClose }) => {
           Les quiz ont été générés avec succès!
         </h3>
         
+        {/* Display how many quizzes were generated */}
+        {quizResults && quizResults.forms && (
+          <p style={{ textAlign: 'center', marginBottom: '2rem', color: 'var(--text-light)' }}>
+            {quizResults.forms.length === 1 
+              ? '1 quiz a été généré.' 
+              : `${quizResults.forms.length} quiz ont été générés.`}
+          </p>
+        )}
+        
         <div className="quiz-list" style={{ marginBottom: '2rem' }}>
           {renderQuizItems()}
         </div>
+        
+        {renderRecipients()}
         
         {renderNotificationsStatus()}
         
