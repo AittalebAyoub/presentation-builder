@@ -89,4 +89,5 @@ def generate_plan(domaine, sujet, description_sujet, niveau_apprenant):
     # Process the response
     response_text = response.choices[0].message.content
     response_json = text_to_json(response_text)
+    print(f'Plan : {response_json}')
     return response_json

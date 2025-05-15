@@ -216,15 +216,23 @@ def create_pdf(output_filename, sections, logo_path, formation_title, trainer_na
                     elements.append(Spacer(1, 10))
                 
                 # Code blocks
-                if "code" in subsection:
-                    elements.append(format_code_block(subsection["code"]))
-                    elements.append(Spacer(1, 10))
+                if "code" in subsection :
+                    try : 
+                        elements.append(format_code_block(subsection["code"]))
+                        elements.append(Spacer(1, 10))
+                
+                    except Exception as e :
+                        print(f'Code : {e}')
                 
                 # Tables
-                if "table" in subsection:
-                    table_data = subsection["table"]
-                    elements.append(format_table(table_data))
-                    elements.append(Spacer(1, 10))
+                if "table" in subsection :
+                    try : 
+                      table_data = subsection["table"]
+                      elements.append(format_table(table_data))
+                      elements.append(Spacer(1, 10))
+                
+                    except Exception as e :
+                        print(f'Tableau : {e}')
     
     # Function for canvas with orange bar
     def canvas_with_orange_bar(canvas, doc):

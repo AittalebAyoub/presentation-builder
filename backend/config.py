@@ -5,7 +5,7 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
 # API Configuration
-    API_KEY = os.environ.get('OPENAI_API_KEY') or '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'
+    API_KEY = os.environ.get('OPENAI_API_KEY') or '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'
     BASE_URL = "https://openrouter.ai/api/v1"
     MODEL = "deepseek/deepseek-chat:free"
     

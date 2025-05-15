@@ -98,7 +98,7 @@ def generate_content(domaine, sujet, plan):
         # Process the response
         response_text = response.choices[0].message.content
         response_text = response_text.replace("```", "").replace("json", "").strip()
-        
+        print(f'Presentation : {response_text}')
         try:
             section_content = json_repair.loads(response_text)
             content.append(section_content)
