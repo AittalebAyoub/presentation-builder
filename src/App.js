@@ -7,6 +7,7 @@ import StepsIndicator from './components/StepsIndicator';
 import Step1Parameters from './components/Step1Parameters';
 import Step2Plan from './components/Step2Plan';
 import Step3Generation from './components/Step3Generation';
+import QuizFlow from './components/QuizFlow';
 import EditSectionModal from './components/EditSectionModal';
 import AddSectionModal from './components/AddSectionModal';
 import AddSessionModal from './components/AddSessionModal';
@@ -60,6 +61,9 @@ function App() {
   // State for loading spinner
   const [isLoadingPlan, setIsLoadingPlan] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
+  
+  // State for quiz functionality
+  const [showQuizFlow, setShowQuizFlow] = useState(false);
   
   // Convert API plan response to our sections format
   const convertApiPlanToSections = (apiResponse) => {
@@ -512,6 +516,21 @@ function App() {
     }
   };
   
+  // Quiz functionality handlers
+  const handleGenerateQuiz = () => {
+    setShowQuizFlow(true);
+  };
+  
+  const handleQuizCancel = () => {
+    setShowQuizFlow(false);
+  };
+  
+  const handleQuizError = (errorMsg) => {
+    setErrorMessage(errorMsg || 'An error occurred during quiz generation');
+    setShowErrorModal(true);
+    setShowQuizFlow(false);
+  };
+  
   return (
     <div className="app">
       <Header />
@@ -530,6 +549,7 @@ function App() {
               formData={formData} 
               onChange={handleInputChange} 
               onNext={() => goToStep(2)} 
+              isLoading={isLoadingPlan}
             />
           )}
           
@@ -548,13 +568,26 @@ function App() {
           )}
           
           {currentStep === 3 && (
-            <Step3Generation 
-              isGenerating={isGenerating}
-              progress={generationProgress}
-              filesResponse={apiFilesResponse}
-              onDownload={handleDownload}
-              currentDay={currentDay}
-            />
+            <>
+              {showQuizFlow ? (
+                <QuizFlow 
+                  content={apiContentResponse?.content}
+                  planType={formData.planType}
+                  subject={formData.subject}
+                  onCancel={handleQuizCancel}
+                  onError={handleQuizError}
+                />
+              ) : (
+                <Step3Generation 
+                  isGenerating={isGenerating}
+                  progress={generationProgress}
+                  filesResponse={apiFilesResponse}
+                  onDownload={handleDownload}
+                  currentDay={currentDay}
+                  onGenerateQuiz={handleGenerateQuiz}
+                />
+              )}
+            </>
           )}
           
           {showEditModal && (

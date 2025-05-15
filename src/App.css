@@ -545,3 +545,87 @@ select.form-control {
 .btn.loading {
   animation: pulse 1.5s infinite;
 }
+
+/* Add these new styles for quiz components */
+
+/* Quiz generation components */
+.quiz-config {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.quiz-loading {
+  padding: 2rem 0;
+}
+
+.quiz-success .quiz-list {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.quiz-item {
+  transition: all 0.2s ease;
+}
+
+.quiz-item:hover {
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+
+/* Spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Progress bar animation */
+@keyframes progressGrow {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+.progress-bar {
+  animation: progressGrow 30s ease-out;
+}
+
+/* Email list styles */
+.email-list {
+  margin-top: 1rem;
+}
+
+.email-tag {
+  display: inline-block;
+  background-color: #F1F5F9;
+  padding: 0.35rem 0.7rem;
+  border-radius: 20px;
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.email-tag.trainer {
+  background-color: #FFEDD5;
+  color: #C2410C;
+}
+
+/* Notifications section */
+.notification-box {
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  margin-bottom: 1.5rem;
+}
+
+.notification-box.success {
+  background-color: #F0FDF4;
+  border: 1px solid #DCFCE7;
+}
+
+.notification-box.error {
+  background-color: #FEF2F2;
+  border: 1px solid #FEE2E2;
+}

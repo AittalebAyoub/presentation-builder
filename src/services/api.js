@@ -234,3 +234,199 @@ export const getDownloadUrl = (relativeUrl) => {
   if (relativeUrl.startsWith('http')) return relativeUrl;
   return `${API_BASE_URL}${relativeUrl}`;
 };
+
+/**
+ * Generate quizzes based on content using the multi-quiz-workflow endpoint
+ * @param {Object} params - Parameters for quiz generation
+ * @returns {Promise} - The generated quizzes
+ */
+export const generateQuizzes = async (params) => {
+  try {
+    console.log('Sending quiz generation request to:', `${API_BASE_URL}/api/multi-quiz-workflow`);
+    
+    const response = await fetch(`${API_BASE_URL}/api/multi-quiz-workflow`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        content: params.content,
+        type: params.type,
+        level: params.level,
+        nbr_qst_per_item: params.questionsPerItem,
+        title_template: params.titleTemplate || 'Formation',
+        emails: params.emails || [],
+        trainer_emails: params.trainerEmails || [],
+        share_forms: params.sendEmails
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Response not OK:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('Error text:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Quiz generation response data:', data);
+    return data;
+  } catch (error) {
+    console.error('Error generating quizzes:', error);
+    throw error;
+  }
+};
+
+/**
+ * Generate section-based quizzes
+ * @param {Object} params - Parameters for quiz generation
+ * @returns {Promise} - The generated quizzes
+ */
+export const generateSectionQuizzes = async (params) => {
+  try {
+    console.log('Sending section quiz generation request to:', `${API_BASE_URL}/api/generate-section-quizzes`);
+    
+    const response = await fetch(`${API_BASE_URL}/api/generate-section-quizzes`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        section_content: params.content,
+        level: params.level,
+        nbr_qst_per_section: params.questionsPerItem,
+        title_template: params.titleTemplate || 'Formation'
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Response not OK:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('Error text:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Section quiz generation response data:', data);
+    return data;
+  } catch (error) {
+    console.error('Error generating section quizzes:', error);
+    throw error;
+  }
+};
+
+/**
+ * Generate day-based quizzes
+ * @param {Object} params - Parameters for quiz generation
+ * @returns {Promise} - The generated quizzes
+ */
+export const generateDayQuizzes = async (params) => {
+  try {
+    console.log('Sending day quiz generation request to:', `${API_BASE_URL}/api/generate-daily-quizzes`);
+    
+    const response = await fetch(`${API_BASE_URL}/api/generate-daily-quizzes`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        daily_content: params.content,
+        level: params.level,
+        nbr_qst_per_day: params.questionsPerItem,
+        title_template: params.titleTemplate || 'Formation'
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Response not OK:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('Error text:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Day quiz generation response data:', data);
+    return data;
+  } catch (error) {
+    console.error('Error generating day quizzes:', error);
+    throw error;
+  }
+};
+
+/**
+ * Create multiple quiz forms
+ * @param {Object} params - Parameters for form creation
+ * @returns {Promise} - The created forms
+ */
+export const createMultipleForms = async (params) => {
+  try {
+    console.log('Sending create multiple forms request to:', `${API_BASE_URL}/api/create-multiple-forms`);
+    
+    const response = await fetch(`${API_BASE_URL}/api/create-multiple-forms`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        quiz_data_list: params.quizDataList,
+        title_template: params.titleTemplate || 'Formation',
+        type: params.type // 'day' or 'section'
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Response not OK:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('Error text:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Create multiple forms response data:', data);
+    return data;
+  } catch (error) {
+    console.error('Error creating multiple forms:', error);
+    throw error;
+  }
+};
+
+/**
+ * Share quiz forms with users
+ * @param {Object} params - Parameters for sharing forms
+ * @returns {Promise} - Information about the sharing results
+ */
+export const shareQuizForms = async (params) => {
+  try {
+    console.log('Sending share forms request to:', `${API_BASE_URL}/api/share-form`);
+    
+    const response = await fetch(`${API_BASE_URL}/api/share-form`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        form_id: params.formId,
+        emails: params.emails || [],
+        trainer_emails: params.trainerEmails || [],
+        session_id: params.sessionId,
+        title: params.title,
+        edit_url: params.editUrl,
+        view_url: params.viewUrl
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Response not OK:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('Error text:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Share forms response data:', data);
+    return data;
+  } catch (error) {
+    console.error('Error sharing forms:', error);
+    throw error;
+  }
+};
